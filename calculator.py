@@ -8,7 +8,7 @@ except:
 from PIL import Image
 # Custom modules
 from settings import *
-from buttons import CalculatorButton, ImageButton
+from buttons import CalculatorButton, ImageButton, NumberButton, MathButton, MathImageButton
 
 
 class Calculator(ctk.CTk):
@@ -29,6 +29,8 @@ class Calculator(ctk.CTk):
         # Data
         self.result_str = ctk.StringVar(value='0')
         self.formula_str = ctk.StringVar(value='')
+        self.display_nums = []
+        self.full_operation = []
 
         # Layout
         self.grid_rowconfigure(list(range(MAIN_ROWS)), weight=1, uniform='a')
@@ -67,6 +69,7 @@ class Calculator(ctk.CTk):
             row=OPERATORS['percent']['row'],
             font=main_font)
         
+        # Invert button
         img_invert = ctk.CTkImage(
             light_image=Image.open(OPERATORS['invert']['image path']['dark']),
             dark_image=Image.open(OPERATORS['invert']['image path']['light'])
@@ -80,14 +83,104 @@ class Calculator(ctk.CTk):
             image=img_invert
         )
 
+        # Number buttons
+        for num, data in NUM_POSITIONS.items():
+            NumberButton(
+                parent=self,
+                text=num,
+                command=self.num_press,
+                col=data['col'],
+                row=data['row'],
+                font=main_font,
+                span=data['span']
+            )
+    
+        # Math operator buttons
+        for operator, data in MATH_POSITIONS.items():
+            if data['image path']:
+                divide_image = ctk.CTkImage(
+                    light_image=Image.open(data['image path']['dark']),
+                    dark_image=Image.open(data['image path']['light'])
+                )
+                MathImageButton(
+                    parent=self,
+                    operator=operator,
+                    command=self.math_press,
+                    col=data['col'],
+                    row=data['row'],
+                    image=divide_image
+                )
+            else:
+                MathButton(
+                    parent=self,
+                    text=data['character'],
+                    operator=operator,
+                    command=self.math_press,
+                    col=data['col'],
+                    row=data['row'],
+                    font=main_font,
+                )
+
     def clear(self):
-        print('Clear')
+        self.result_str.set(0)
+        self.formula_str.set('')
+
+        self.display_nums.clear()
+        self.full_operation.clear()
 
     def percent(self):
-        print('Percent')
+        if self.display_nums:
+            current_number = float(''.join(self.display_nums))
+            percent = current_number/100
+            self.display_nums = list(str(percent))
+            self.result_str.set(''.join(self.display_nums))
 
     def invert(self):
-        print('Invert')
+        current_number = ''.join(self.display_nums)
+        if current_number:
+            if float(current_number) > 0:
+                self.display_nums.insert(0, '-')
+            else:
+                del self.display_nums[0]
+
+            self.result_str.set(''.join(self.display_nums))
+
+    def num_press(self, value):
+        self.display_nums.append(str(value))
+        full_number = ''.join(self.display_nums)
+        self.result_str.set(full_number)
+
+    def math_press(self, operator):
+        curr_number = ''.join(self.display_nums)
+        if curr_number:
+            self.full_operation.append(curr_number)
+
+            if operator != '=':
+                # Update data
+                self.full_operation.append(operator)
+                self.display_nums.clear()
+
+                # Update output
+                self.result_str.set('')
+                self.formula_str.set(' '.join(self.full_operation))
+            else:
+                formula = ''.join(self.full_operation)
+                result = eval(formula)
+
+                # Format result
+                if isinstance(result, float):
+                    if result.is_integer():
+                        result = int(result)
+                    else:
+                        result = round(result, 3)
+
+                # Update output
+                self.result_str.set(result)
+                self.formula_str.set(' '.join(self.full_operation))
+
+                # Update data
+                self.full_operation.clear()
+                self.display_nums = [str(result)]
 
     def __title_bar_color(self, is_dark):
         """Hide the title bar somewhat by giving it the same background
